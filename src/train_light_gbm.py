@@ -67,5 +67,5 @@ print(f"AUC: {auc:.4f}")
 
 lgb.plot_importance(model, max_num_features=10, importance_type='gain')
 plt.tight_layout()
-plt.savefig("images/lgb_feature_importance.png")
+plt.savefig("images/decision_tree/lgb_feature_importance.png")
 print("Feature importance plot saved.")

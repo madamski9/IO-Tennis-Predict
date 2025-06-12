@@ -4,7 +4,7 @@ def plot_surface_elos():
     import os
 
     surfaces = ["Hard", "Clay", "Grass"]
-    os.makedirs("images", exist_ok=True)
+    os.makedirs("images/decision_tree/", exist_ok=True)
 
     for surface in surfaces:
         path = f"data/processed/elo_history_{surface.lower()}.csv"

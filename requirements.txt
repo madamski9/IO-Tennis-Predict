@@ -10,3 +10,4 @@ keras
 joblib
 streamlit
 xgboost
+optuna
