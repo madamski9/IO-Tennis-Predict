@@ -2,8 +2,13 @@ import pandas as pd
 import numpy as np
 import xgboost as xgb
 import joblib
+from xgboost import XGBClassifier
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.base import clone
 import os
 import optuna
 
@@ -24,7 +29,6 @@ surface_elo_cols = {
     "Clay": "Elo_Clay_diff",
     "Grass": "Elo_Grass_diff",
 }
-
 df["surface_elo_diff"] = df.apply(lambda row: row.get(surface_elo_cols.get(row["Surface"], ""), 0.0), axis=1)
 df["elo_x_form"] = df["Elo_diff"] * df["win_last_100_diff"]
 df["elo_plus_form"] = df["Elo_diff"] + df["win_last_100_diff"]
@@ -53,13 +57,13 @@ y_val = val_df["is_player1_winner"]
 X_test = test_df[features]
 y_test = test_df["is_player1_winner"]
 
-# === 7. Optuna tuning ===
+# === 7. Optuna tuning dla XGBoost (możesz dostosować trials) ===
 def objective(trial):
     param = {
         "objective": "binary:logistic",
         "eval_metric": "logloss",
         "booster": "gbtree",
-        "tree_method": "hist",  # szybsze trenowanie
+        "tree_method": "hist",
         "eta": trial.suggest_float("eta", 0.01, 0.3),
         "max_depth": trial.suggest_int("max_depth", 3, 10),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
@@ -69,71 +73,96 @@ def objective(trial):
         "alpha": trial.suggest_float("alpha", 0.0, 1.0),
         "scale_pos_weight": y_tr.value_counts()[0] / y_tr.value_counts()[1],
         "seed": 42,
+        "verbosity": 0,
     }
+    skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    aucs = []
+    for train_idx, val_idx in skf.split(X_tr, y_tr):
+        X_train, X_val_fold = X_tr.iloc[train_idx], X_tr.iloc[val_idx]
+        y_train, y_val_fold = y_tr.iloc[train_idx], y_tr.iloc[val_idx]
 
-    dtrain = xgb.DMatrix(X_tr, label=y_tr)
-    dval = xgb.DMatrix(X_val, label=y_val)
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        dval = xgb.DMatrix(X_val_fold, label=y_val_fold)
 
-    model = xgb.train(
-        params=param,
-        dtrain=dtrain,
-        num_boost_round=1000,
-        evals=[(dval, "val")],
-        early_stopping_rounds=30,
-        verbose_eval=False
-    )
-
-    y_val_pred = model.predict(dval)
-    auc = roc_auc_score(y_val, y_val_pred)
-    return auc
+        model = xgb.train(param, dtrain, num_boost_round=1000,
+                          evals=[(dval, "val")], early_stopping_rounds=30, verbose_eval=False)
+        preds = model.predict(dval)
+        aucs.append(roc_auc_score(y_val_fold, preds))
+    return np.mean(aucs)
 
 study = optuna.create_study(direction="maximize")
-study.optimize(objective, n_trials=100)
+study.optimize(objective, n_trials=20)
 
-print("Best parameters:", study.best_params)
-print("Best AUC on validation:", study.best_value)
+print("Best XGB params:", study.best_params)
 
-# === 8. Finalny model z najlepszymi parametrami ===
-best_params = study.best_params
-best_params.update({
+# === 8. Budowa modeli bazowych ===
+best_xgb_params = study.best_params
+best_xgb_params.update({
     "objective": "binary:logistic",
     "eval_metric": "logloss",
     "tree_method": "hist",
     "scale_pos_weight": y_tr.value_counts()[0] / y_tr.value_counts()[1],
-    "seed": 42
+    "seed": 42,
+    "verbosity": 0,
 })
 
-dtrain = xgb.DMatrix(X_tr, label=y_tr)
-dval = xgb.DMatrix(X_val, label=y_val)
-dtest = xgb.DMatrix(X_test)
+xgb_model = XGBClassifier(**best_xgb_params, use_label_encoder=False)
+rf_model = RandomForestClassifier(n_estimators=200, random_state=42)
+base_models = [xgb_model, rf_model]
+meta_model = LogisticRegression(max_iter=1000)
 
-final_model = xgb.train(
-    params=best_params,
-    dtrain=dtrain,
-    num_boost_round=1000,
-    evals=[(dval, "val")],
-    early_stopping_rounds=30,
-    verbose_eval=50
-)
+# === 9. Stacking ===
+n_folds = 5
+skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
-# === 9. Ewaluacja ===
-y_prob = final_model.predict(dtest)
-y_pred = (y_prob > 0.5).astype(int)
+# Przygotowanie tablicy na meta cechy (predykcje bazowych modeli na treningu)
+meta_features_train = np.zeros((X_tr.shape[0], len(base_models)))
 
-acc = accuracy_score(y_test, y_pred)
-auc = roc_auc_score(y_test, y_prob)
+for i, model in enumerate(base_models):
+    meta_feature = np.zeros(X_tr.shape[0])
+    for train_idx, val_idx in skf.split(X_tr, y_tr):
+        X_train_fold, X_val_fold = X_tr.iloc[train_idx], X_tr.iloc[val_idx]
+        y_train_fold, y_val_fold = y_tr.iloc[train_idx], y_tr.iloc[val_idx]
 
-print(f"\nTest Accuracy: {acc:.4f}")
-print(f"Test AUC: {auc:.4f}")
+        cloned_model = clone(model)
+        cloned_model.fit(X_train_fold, y_train_fold)
+        preds = cloned_model.predict_proba(X_val_fold)[:, 1]
+        meta_feature[val_idx] = preds
+    meta_features_train[:, i] = meta_feature
 
-# === 10. Zapis modelu ===
+# Uczymy meta-model na predykcjach bazowych modeli
+meta_model.fit(meta_features_train, y_tr)
+
+# Teraz predykcje bazowych modeli na zbiorze testowym
+meta_features_test = np.zeros((X_test.shape[0], len(base_models)))
+for i, model in enumerate(base_models):
+    model.fit(X_tr, y_tr)  # Trenujemy bazowe modele na pełnym treningu
+    preds_test = model.predict_proba(X_test)[:, 1]
+    meta_features_test[:, i] = preds_test
+
+# Predykcje finalne meta-modelu na podstawie meta cech
+final_preds_proba = meta_model.predict_proba(meta_features_test)[:, 1]
+final_preds = (final_preds_proba > 0.5).astype(int)
+
+acc = accuracy_score(y_test, final_preds)
+auc = roc_auc_score(y_test, final_preds_proba)
+
+print(f"Stacking Test Accuracy: {acc:.4f}")
+print(f"Stacking Test AUC: {auc:.4f}")
+
+# === 10. Zapisz meta-model (Logistic Regression) i bazowe modele (XGB i RF) ===
 os.makedirs("models", exist_ok=True)
-joblib.dump(final_model, "models/xgb_model_optuna.joblib")
-print("Model saved to models/xgb_model_optuna.joblib")
+joblib.dump(meta_model, "models/meta_model_logreg.joblib")
+joblib.dump(xgb_model, "models/xgb_base_model.joblib")
+joblib.dump(rf_model, "models/rf_base_model.joblib")
+print("Models saved to models/")
 
-# === 11. Feature importance ===
-os.makedirs("images/decision_tree/", exist_ok=True)
-xgb.plot_importance(final_model, importance_type="gain", max_num_features=15)
+# === 11. Feature importance dla XGBoost ===
+# Trenuj na pełnym treningu i rysuj
+xgb_model.fit(X_tr, y_tr)
+plt.figure(figsize=(10,6))
+xgb.plot_importance(xgb_model, importance_type="gain", max_num_features=15)
 plt.tight_layout()
+os.makedirs("images/decision_tree/", exist_ok=True)
 plt.savefig("images/decision_tree/xgb_feature_importance.png")
 print("Feature importance plot saved.")
