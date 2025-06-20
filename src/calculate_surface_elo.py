@@ -42,7 +42,8 @@ def build_surface_elo_history(df, output_dir="data/processed"):
 def calculate_surface_elo(df, k=32, start_elo=1500):
     surface_elos = {
         "Hard": collections.defaultdict(lambda: start_elo),
-        "Grass": collections.defaultdict(lambda: start_elo)
+        "Grass": collections.defaultdict(lambda: start_elo),
+        "Clay": collections.defaultdict(lambda: start_elo)
     }
 
     for surface in surface_elos:
@@ -56,7 +57,6 @@ def calculate_surface_elo(df, k=32, start_elo=1500):
         p2 = row["Player_2"]
         winner = row["Winner"]
         surface = row["Surface"]
-        date = row["Date"]
 
         if surface not in surface_elos:
             continue
@@ -68,14 +68,11 @@ def calculate_surface_elo(df, k=32, start_elo=1500):
         expected_1 = 1 / (1 + 10 ** ((R2 - R1) / 400))
         S1 = 1 if winner == p1 else 0
 
-        R1_new = R1 + k * (S1 - expected_1)
-        R2_new = R2 + k * ((1 - S1) - (1 - expected_1))
-
         df.at[i, f"Elo_{surface}_1"] = R1
         df.at[i, f"Elo_{surface}_2"] = R2
 
-        elo_dict[p1] = R1_new
-        elo_dict[p2] = R2_new
+        elo_dict[p1] = R1 + k * (S1 - expected_1)
+        elo_dict[p2] = R2 + k * ((1 - S1) - (1 - expected_1))
 
     for surface in surface_elos:
         df[f"Elo_{surface}_diff"] = df[f"Elo_{surface}_1"] - df[f"Elo_{surface}_2"]

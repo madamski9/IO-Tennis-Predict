@@ -8,15 +8,18 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.base import clone
 import os
 import optuna
 
-# === 1. Wczytaj dane ===
-df = pd.read_csv("data/processed/atp_tennis_processed.csv")
+# wczytanie danych 
+df = pd.read_csv("data/processed/atp_tennis_processed_test.csv")
 df["Date"] = pd.to_datetime(df["Date"])
 
-# === 2. Usuń mecze bez różnic ===
+# usuniecie meczy bez roznic
 df = df[
     (df["win_last_25_diff"] != 0) |
     (df["elo_grad_50_diff"] != 0) |
@@ -57,7 +60,28 @@ y_val = val_df["is_player1_winner"]
 X_test = test_df[features]
 y_test = test_df["is_player1_winner"]
 
-# === 7. Optuna tuning dla XGBoost (możesz dostosować trials) ===
+# # Naive Bayes
+# nb = GaussianNB()
+# nb.fit(X_tr, y_tr)
+# nb_preds = nb.predict(X_test)
+# nb_acc = accuracy_score(y_test, nb_preds)
+# print(f"Naive Bayes accuracy: {nb_acc:.4f}")
+
+# # kNN
+# knn = KNeighborsClassifier(n_neighbors=5)
+# knn.fit(X_tr, y_tr)
+# knn_preds = knn.predict(X_test)
+# knn_acc = accuracy_score(y_test, knn_preds)
+# print(f"kNN accuracy: {knn_acc:.4f}")
+
+# # Decision Tree
+# dt = DecisionTreeClassifier(random_state=42)
+# dt.fit(X_tr, y_tr)
+# dt_preds = dt.predict(X_test)
+# dt_acc = accuracy_score(y_test, dt_preds)
+# print(f"Decision Tree accuracy: {dt_acc:.4f}")
+
+# optuna tuning dla XGBoost 
 def objective(trial):
     param = {
         "objective": "binary:logistic",
