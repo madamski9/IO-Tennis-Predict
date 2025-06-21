@@ -63,6 +63,29 @@ Z wykresów i interpretacji cech wynika, że:
 
 ---
 
+## Test na prawdziwej drabince turniejowej
+
+Po wytrenowaniu wszystkich modeli (najlepszy osiągał accuracy ~66%) zdecydowałem się przetestować model w realistycznym scenariuszu:
+
+1. **Pobranie drabinki z aktualnego turnieju wielkoszlemowego**:
+   - Stworzony został skrypt: `src/bracket/scrape_grandslam_bracket`
+   - Automatycznie pobiera drabinkę (matchupy) graczy z internetu
+
+2. **Predykcja meczów turniejowych**:
+   - Na podstawie przygotowanej bazy danych (zawierającej cechy graczy z ich ostatnich meczów) 
+     skrypt: `src/latest_player_matches/players_latest_features`, csv: `data/processed/atp_players_features_latest`
+   - Dla każdego gracza pobierany był jego ostatni mecz
+   - Model przewidywał zwycięzców kolejnych rund turnieju
+
+3. **Model skutecznie wytypował zwycięzcę całego turnieju!**
+
+4. **Wizualizacje**:
+   - Dla każdego meczu stworzono wykres pokazujący, które cechy miały największy wpływ na decyzję modelu
+   - Stworzono również **pełny wykres drabinki z wynikami modelu**
+   - Nadal występowały problemy w meczach z niewielką różnicą ELO — model jest **najpewniejszy, gdy różnica ELO jest wyraźna**
+
+---
+
 ## Techniczne szczegóły
 
 - Dane: `data/processed/atp_tennis_processed.csv`

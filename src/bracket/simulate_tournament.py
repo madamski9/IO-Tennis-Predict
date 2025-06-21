@@ -2,6 +2,10 @@ import pandas as pd
 import numpy as np
 import joblib
 import re
+import networkx as nx
+import plotly.graph_objects as go
+from networkx.drawing.nx_pydot import graphviz_layout
+import matplotlib.pyplot as plt
 
 # === Normalizacja i dopasowywanie nazw ===
 
@@ -45,7 +49,7 @@ def get_player_row(name):
     else:
         return None
 
-def generate_match_features(p1_raw, p2_raw, surface="Clay"):
+def generate_match_features(p1_raw, p2_raw, surface="Hard"):
     f1 = get_player_row(p1_raw)
     f2 = get_player_row(p2_raw)
 
@@ -86,13 +90,8 @@ def generate_match_features(p1_raw, p2_raw, surface="Clay"):
     df = df.apply(pd.to_numeric, errors='coerce')
     return df[features]
 
-# features = generate_match_features("Sinner J.", "Gasquet R.")
-# print(features)
-# prediction = xgb_model.predict(features)
-# print("Predykcja modelu:", prediction)
-
 # === Wczytaj drabinkę turniejową ===
-bracket_df = pd.read_csv("data/brackets/draw_roland_garros_2025_64.csv")
+bracket_df = pd.read_csv("data/brackets/draw_roland_garros_2025_128.csv")
 bracket_df.columns = ["Round", "Player_1", "Player_2"]
 bracket_df_original = bracket_df.copy()
 
@@ -101,6 +100,35 @@ bracket_df = bracket_df[bracket_df["Round"].str.isdigit()]
 bracket_df["Round"] = bracket_df["Round"].astype(int)
 
 results = []
+
+def plot_feature_importance_for_match(features_df, model, player_1, player_2, round_num, match_index):
+    booster = model.get_booster()
+    importances = booster.get_score(importance_type='gain')  # lub 'weight'
+
+    # Dopasuj do wartości z aktualnego meczu
+    values = features_df.iloc[0]
+
+    # Wybierz tylko te cechy, które występują w ważności
+    contrib = {k: importances[k] * values[k] for k in importances if k in values}
+
+    if not contrib:
+        print(f"Brak wspólnych cech do wyświetlenia dla: {player_1} vs {player_2}")
+        return
+
+    # Posortuj według wpływu
+    sorted_items = sorted(contrib.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
+    keys, vals = zip(*sorted_items)
+
+    plt.figure(figsize=(10, 6))
+    plt.barh(keys, vals, color='cornflowerblue')
+    plt.axvline(0, color='gray', linewidth=0.8)
+    plt.title(f"Wpływ cech (XGBoost): {player_1} vs {player_2}")
+    plt.xlabel("Wkład cechy")
+    plt.tight_layout()
+
+    filename = f"images/bracket/importance_r{round_num}_m{match_index}_{player_1}_vs_{player_2}.png"
+    plt.savefig(filename)
+    plt.close()
 
 # === Główna pętla predykcyjna przez wszystkie rundy ===
 current_round_num = bracket_df["Round"].min()
@@ -131,6 +159,8 @@ while True:
         meta_input = np.column_stack([xgb_pred, rf_pred])
         final_pred = meta_model.predict(meta_input)[0]
 
+        plot_feature_importance_for_match(match_features, xgb_model, p1, p2, current_round_num, idx)
+
         winner = p1 if final_pred == 1 else p2
         results.append({
             "Round": current_round_num,
@@ -154,7 +184,73 @@ while True:
         print(f"Nie utworzono kolejnej rundy po rundzie {current_round_num} — liczba zwycięzców: {len(winners)}")
         break
 
-# === Zapisz wyniki ===
+# wyniki
 results_df = pd.DataFrame(results)
 results_df.to_csv("data/predict_tourney/predicted_bracket.csv", index=False)
 print("Zapisano: data/predict_tourney/predicted_bracket.csv")
+
+# drabinka graczy
+G = nx.DiGraph()
+
+for _, row in results_df.iterrows():
+    G.add_edge(row["Player_1"], row["Pred_Winner"])
+    G.add_edge(row["Player_2"], row["Pred_Winner"])
+
+try:
+    pos = graphviz_layout(G, prog="dot")  # wymaga: brew install pydot
+except Exception as e:
+    print("Uwaga: potrzebny 'pydot' (spróbuj: pip install pydot)")
+    pos = nx.spring_layout(G, k=2, iterations=200)
+
+def shorten_name(name):
+    return name.split()[-1]  # tylko nazwisko
+
+edge_x = []
+edge_y = []
+
+for edge in G.edges():
+    x0, y0 = pos[edge[0]]
+    x1, y1 = pos[edge[1]]
+    edge_x += [x0, x1, None]
+    edge_y += [y0, y1, None]
+
+node_x = []
+node_y = []
+node_text = []
+
+for node in G.nodes():
+    x, y = pos[node]
+    node_x.append(x)
+    node_y.append(-y)  
+    node_text.append(shorten_name(node))
+
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=edge_x, y=[-y if y is not None else None for y in edge_y],
+    mode='lines',
+    line=dict(width=1, color='gray'),
+    hoverinfo='none'
+))
+
+fig.add_trace(go.Scatter(
+    x=node_x, y=node_y,
+    mode='markers+text',
+    marker=dict(size=10, color='blue'),
+    text=node_text,
+    textposition="top center",
+    textfont=dict(size=12),
+    hoverinfo='text'
+))
+
+fig.update_layout(
+    title="Drzewo turniejowe (predykcja)",
+    showlegend=False,
+    width=1400,
+    height=1000,
+    margin=dict(l=20, r=20, t=50, b=20),
+    xaxis=dict(showgrid=False, zeroline=False, visible=False),
+    yaxis=dict(showgrid=False, zeroline=False, visible=False)
+)
+
+fig.write_image("images/bracket/tree_plotly_bracket.png")

@@ -11,3 +11,4 @@ joblib
 streamlit
 xgboost
 optuna
+networkx
