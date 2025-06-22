@@ -49,7 +49,7 @@ def get_player_row(name):
     else:
         return None
 
-def generate_match_features(p1_raw, p2_raw, surface="Hard"):
+def generate_match_features(p1_raw, p2_raw, surface="Clay"):
     f1 = get_player_row(p1_raw)
     f2 = get_player_row(p2_raw)
 
