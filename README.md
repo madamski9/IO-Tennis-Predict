@@ -32,17 +32,12 @@
    pip install -r requirements.txt
    ```
 
-2. **Przetwórz dane**  
+2. **Wytrenuj model (opcjonalne)**
    ```
-   python src/preprocess.py
-   ```
-
-3. **Wytrenuj model**  
-   ```
-   python src/train_xgboost.py
+   python src/train/train_xgboost.py
    ```
 
-4. **Symuluj turniej**  
+3. **Symuluj turniej**  
    ```
    python src/bracket/simulate_tournament.py
    ```
