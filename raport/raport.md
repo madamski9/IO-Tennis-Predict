@@ -19,6 +19,14 @@ Dane wejściowe pochodziły ze zbioru spotkań ATP (`atp_tennis.csv`), a następ
   - Pochodne ELO z formą:
     - `elo_x_form = Elo_diff * win_last_100_diff`
     - `elo_form_ratio = Elo_diff / (win_last_100_diff + ε)`
+    - `elo_plus_form = Elo_diff + win_last_100_diff`
+
+- Wykres punktów ELO każdego zawodnika z wyróżnieniem 5 najlepszych:
+
+ <p align="center">
+  <img src="../images/elo_over_time.png" width="70%">
+  <br><br>
+</p>
 
 Zmienna celu (`is_player1_winner`) to etykieta binarna wskazująca zwycięstwo zawodnika nr 1.
 
@@ -40,6 +48,11 @@ W zbiorze danych dostępne są również kolumny `Odd_1` i `Odd_2`, które przed
   - Najlepsze wyniki:
     - **AUC ≈ 0.738**
     - **Accuracy ≈ 65.3%**
+  - Jedno z drzew XGBoost:
+    
+<p align="center">
+  <img src="../images/decision_tree/xgb_tree_0.png" alt="Drzewo XGBoost" width="75%">
+</p>
 
 ### Eksperymenty:
 - **Ensemble stacking**: Połączenie `XGBoost` i `Random Forest` w modelu `StackingClassifier`
@@ -50,9 +63,9 @@ W zbiorze danych dostępne są również kolumny `Odd_1` i `Odd_2`, które przed
   - Wykresy pokazują, że nie wnosi dużej poprawy
 
 - **kNN, Native Bayers, Decision Tree**:
- - kNN accuracy: 0.6080
- - Naive Bayes accuracy: 0.6482
- - Decision Tree accuracy: 0.5705
+   - kNN accuracy: 0.6080
+   - Naive Bayes accuracy: 0.6482
+   - Decision Tree accuracy: 0.5705
 
 ---
 
@@ -61,9 +74,19 @@ W zbiorze danych dostępne są również kolumny `Odd_1` i `Odd_2`, które przed
 - Wygenerowano wykresy:
   - **ROC curves** (porównanie modeli)
   - **Feature importance** (XGBoost)
+    
+ <p align="center">
+  <img src="../images/neural_network/training_curves.png" width="70%">
+  <br><br>
+</p>
+ 
+<p align="center">
+  <img src="../images/decision_tree/xgb_feature_importance.png" width="70%">
+  <br><br>
+</p>
 
 Z wykresów i interpretacji cech wynika, że:
-> **Najbardziej wpływowym predyktorem są punkty ELO**, a szczególnie wersje dostosowane do nawierzchni (`surface_elo_diff`) oraz forma (`win_last_100_diff`).
+> **Najbardziej wpływowym predyktorem są punkty ELO**, a szczególnie suma różnicy elo i formy (`elo_plus_form`).
 
 ---
 
@@ -82,11 +105,18 @@ Po wytrenowaniu wszystkich modeli (najlepszy osiągał accuracy ~66%) zdecydowa�
    - Model przewidywał zwycięzców kolejnych rund turnieju
 
 3. **Model skutecznie wytypował zwycięzcę całego turnieju!**
+   - W pliku `data/predict_tourney/predicted_bracket.csv` można zobaczyć jakich zwycięzców wytypował nasz model
 
 4. **Wizualizacje**:
    - Dla każdego meczu stworzono wykres pokazujący, które cechy miały największy wpływ na decyzję modelu
    - Stworzono również **pełny wykres drabinki z wynikami modelu**
    - Nadal występowały problemy w meczach z niewielką różnicą ELO — model jest **najpewniejszy, gdy różnica ELO jest wyraźna**
+
+<p align="center">
+  <img src="../images/bracket/importance_r6_m124_Sinner J._vs_Djokovic N..png" width="70%">
+  <br><br>
+  <img src="../images/bracket/tree_plotly_bracket.png" width="70%">
+</p>
 
 ---
 
