@@ -50,6 +50,11 @@ W zbiorze danych dostępne są również kolumny `Odd_1` i `Odd_2`, które przed
   - Porównywalna skuteczność jak XGBoost
   - Wykresy pokazują, że nie wnosi dużej poprawy
 
+- **kNN, Native Bayers, Decision Tree**:
+ - kNN accuracy: 0.6080
+ - Naive Bayes accuracy: 0.6482
+ - Decision Tree accuracy: 0.5705
+
 ---
 
 ## Wizualizacje i interpretacja

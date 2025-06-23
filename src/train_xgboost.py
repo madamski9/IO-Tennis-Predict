@@ -190,3 +190,9 @@ plt.tight_layout()
 os.makedirs("images/decision_tree/", exist_ok=True)
 plt.savefig("images/decision_tree/xgb_feature_importance.png")
 print("Feature importance plot saved.")
+
+# === 12. Wizualizacja jednego z drzew XGBoost ===
+plt.figure(figsize=(20, 10))
+xgb.plot_tree(xgb_model, num_trees=0, rankdir='LR', ax=plt.gca())
+plt.tight_layout()
+plt.savefig("images/decision_tree/xgb_tree_0.png")
