@@ -36,7 +36,7 @@ Round,Player_1,Player_2,Pred_Winner
 1,Opelka R.,Hijikata R.,Opelka R.
 1,Navone M.,Nakashima B.,Nakashima B.
 1,Machac T.,Halys Q.,Halys Q.
-1,Kecmanovic M.,Baez S.,Baez S.
+1,Kecmanovic M.,Baez S.,Kecmanovic M.
 1,Nava E.,Zandschulp B. Van de,Zandschulp B. Van de
 1,Agut R. Bautista,Rune H.,Agut R. Bautista
 1,Tiafoe F.,Safiullin R.,Tiafoe F.
@@ -81,11 +81,11 @@ Round,Player_1,Player_2,Pred_Winner
 2,Moutet C.,Djokovic N.,Djokovic N.
 2,Hanfmann Y.,Galan D.,Galan D.
 2,Opelka R.,Nakashima B.,Opelka R.
-2,Halys Q.,Baez S.,Baez S.
+2,Halys Q.,Kecmanovic M.,Halys Q.
 2,Zandschulp B. Van de,Agut R. Bautista,Agut R. Bautista
 2,Tiafoe F.,Comesana F.,Tiafoe F.
 2,Brooksby J.,Korda S.,Korda S.
-2,Michelsen A.,Medjedovic H.,Michelsen A.
+2,Michelsen A.,Medjedovic H.,Medjedovic H.
 2,Monteiro T.,Fritz T.,Fritz T.
 2,Ruud C.,Borges N.,Ruud C.
 2,Tabilo A.,Popyrin A.,Popyrin A.
@@ -99,30 +99,30 @@ Round,Player_1,Player_2,Pred_Winner
 3,Rublev A.,Fils A.,Rublev A.
 3,Minaur A. de,Mensik J.,Mensik J.
 3,Hurkacz H.,Draper J.,Draper J.
-3,Jong J. De,Cobolli F.,Jong J. De
+3,Jong J. De,Cobolli F.,Cobolli F.
 3,Cerundolo F.,Dimitrov G.,Cerundolo F.
 3,Medvedev D.,Fearnley J.,Medvedev D.
 3,Shapovalov D.,Djokovic N.,Djokovic N.
 3,Galan D.,Opelka R.,Galan D.
-3,Baez S.,Agut R. Bautista,Baez S.
+3,Halys Q.,Agut R. Bautista,Halys Q.
 3,Tiafoe F.,Korda S.,Korda S.
-3,Michelsen A.,Fritz T.,Fritz T.
+3,Medjedovic H.,Fritz T.,Fritz T.
 3,Ruud C.,Popyrin A.,Ruud C.
 3,Khachanov K.,Paul T.,Paul T.
 3,Sonego L.,Gigante M.,Gigante M.
 3,Dzumhur D.,Alcaraz C.,Alcaraz C.
 4,Sinner J.,Rublev A.,Sinner J.
 4,Mensik J.,Draper J.,Draper J.
-4,Jong J. De,Cerundolo F.,Cerundolo F.
+4,Cobolli F.,Cerundolo F.,Cerundolo F.
 4,Medvedev D.,Djokovic N.,Djokovic N.
-4,Galan D.,Baez S.,Galan D.
-4,Korda S.,Fritz T.,Korda S.
+4,Galan D.,Halys Q.,Galan D.
+4,Korda S.,Fritz T.,Fritz T.
 4,Ruud C.,Paul T.,Ruud C.
 4,Gigante M.,Alcaraz C.,Alcaraz C.
 5,Sinner J.,Draper J.,Sinner J.
 5,Cerundolo F.,Djokovic N.,Djokovic N.
-5,Galan D.,Korda S.,Galan D.
+5,Galan D.,Fritz T.,Fritz T.
 5,Ruud C.,Alcaraz C.,Alcaraz C.
 6,Sinner J.,Djokovic N.,Sinner J.
-6,Galan D.,Alcaraz C.,Alcaraz C.
+6,Fritz T.,Alcaraz C.,Alcaraz C.
 7,Sinner J.,Alcaraz C.,Alcaraz C.
