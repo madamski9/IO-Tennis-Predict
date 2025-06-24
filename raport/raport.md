@@ -6,11 +6,12 @@
 2. [Przebieg projektu](#przebieg-projektu)  
 3. [Dane i preprocessing](#dane-i-preprocessing)  
 4. [Co pominąłem?](#co-pominąłem)  
-5. [Modele ML](#modele-ml)  
-6. [Wizualizacje i interpretacja](#wizualizacje-i-interpretacja)  
-7. [Test na prawdziwej drabince turniejowej](#test-na-prawdziwej-drabince-turniejowej)  
-8. [Techniczne szczegóły](#techniczne-szczegóły)  
-9. [Podsumowanie](#podsumowanie)  
+5. [Modele ML](#modele-ml)
+6. [Użycie ensemble stacking](#użycie-ensemble-stacking)
+7. [Wizualizacje i interpretacja](#wizualizacje-i-interpretacja)  
+8. [Test na prawdziwej drabince turniejowej](#test-na-prawdziwej-drabince-turniejowej)  
+9. [Techniczne szczegóły](#techniczne-szczegóły)  
+10. [Podsumowanie](#podsumowanie)  
 
 ---
 
@@ -32,7 +33,7 @@ Dodatkowo wykorzystałem **Optuna** do optymalizacji hiperparametrów. Pozwolił
 
 ## Dane i preprocessing
 
-Dane wejściowe pochodziły ze zbioru spotkań ATP (`atp_tennis.csv`), który następnie przetworzyłem i zapisałem jako `atp_tennis_processed.csv`. Zbiór zawierał podstawowe informacje o meczach i zawodnikach.
+Dane wejściowe pochodziły ze zbioru spotkań ATP (`atp_tennis.csv`), który następnie przetworzyłem i zapisałem jako `atp_tennis_processed.csv`, potem został on jeszcze raz przetworzony do testów dla drabinki turniejowej - problemem była kolejność inicjałów tenisisty, czyli ostateczny plik jest zapisany jako `atp_tennis_processed_test.csv`. 
 
 ### Inżynieria cech
 
@@ -120,11 +121,26 @@ Zrezygnowałem ze zmiennych `Odd_1` i `Odd_2` (kursy bukmacherskie), mimo że s�
   <img src="../images/decision_tree/xgb_tree_0.png" width="75%">
 </p>
 
+## Użycie ensemble stacking
+
+W projekcie postanowiłem wykorzystać technikę **ensemble stacking**, łącząc trzy różne modele: XGBoost, Random Forest oraz Logistic Regression. Wybrałem je, ponieważ każdy z nich ma unikalne zalety, które mogą się wzajemnie uzupełniać, co pozwala osiągnąć lepszą skuteczność predykcji niż pojedynczy model.
+
+### Powody wyboru poszczególnych modeli:
+
+- **XGBoost**  
+  To zaawansowany model oparty na drzewach decyzyjnych z gradient boostingiem. Charakteryzuje się wysoką skutecznością na danych tablicowych, dobrym radzeniem sobie z nieliniowościami i interakcjami cech, a także oferuje wiele opcji regularyzacji, co pomaga ograniczyć przeuczenie.
+
+- **Random Forest**  
+  Model ten składa się z wielu drzew decyzyjnych uczonych na losowych podpróbkach danych i cech. Jest bardzo stabilny, odporny na overfitting i dobrze radzi sobie z danymi zawierającymi szum. Random Forest często działa dobrze tam, gdzie modele boostingowe mogą być zbyt dopasowane.
+
+- **Logistic Regression**  
+  Prostota i interpretowalność to główne zalety regresji logistycznej. Jest to model liniowy, który dobrze uzupełnia modele oparte na drzewach, szczególnie jeśli w danych występują silne zależności liniowe. Ponadto, regresja logistyczna potrafi działać dobrze jako meta-model w stacking’u, ucząc się, jak optymalnie łączyć prognozy bazowych modeli.
+
+Dzięki temu podejściu osiągnąłem lepsze wyniki niż przy użyciu pojedynczego modelu, co potwierdziły testy i metryki jakości predykcji.
+
 ### Inne modele, które przetestowałem:
 
 - **Random Forest** – punkt wyjścia (accuracy ~64%)
-- **Ensemble stacking (XGBoost + RF + Logistic Regression)**:
-  - accuracy ~66%, AUC ~0.74
 - **Sieć neuronowa (Keras)** – podobna skuteczność, mniejsza interpretowalność
 - **kNN**: 0.6080  
 - **Naive Bayes**: 0.6482  
@@ -190,7 +206,7 @@ Przetestowałem model na rzeczywistym turnieju wielkoszlemowym.
 
 Stworzyłem własny system ELO oraz wzbogaciłem dane o cechy formy, rankingu i historii spotkań. Dzięki temu zbudowałem solidny model predykcyjny.
 
-Najlepsze rezultaty uzyskał **XGBoost**, a jego skuteczność poprawiłem o dodatkowe 2% AUC za pomocą **Optuna**. Model osiąga accuracy na poziomie ok. **66%**, jest odporny na overfitting i dobrze interpretuje wpływ cech.
+Najlepsze rezultaty uzyskał ensemble stacking łączący XGBoost, Random Forest oraz regresję logistyczną. Dzięki tej kombinacji skuteczność modelu poprawiłem o dodatkowe 2% AUC za pomocą Optuna. Ensemble osiąga accuracy na poziomie około 66%, jest odporny na overfitting i dobrze interpretuje wpływ poszczególnych cech.
 
 Dzięki testowi na realnym turnieju mogłem pokazać praktyczne zastosowanie modelu w typowaniu zwycięzców.
 
