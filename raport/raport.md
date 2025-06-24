@@ -1,116 +1,172 @@
 # Raport: Predykcja wyników meczów tenisowych ATP
 
+## Spis treści
+
+1. [Cel projektu](#cel-projektu)  
+2. [Przebieg projektu](#przebieg-projektu)  
+3. [Dane i preprocessing](#dane-i-preprocessing)  
+4. [Co pominąłem?](#co-pominąłem)  
+5. [Modele ML](#modele-ml)  
+6. [Wizualizacje i interpretacja](#wizualizacje-i-interpretacja)  
+7. [Test na prawdziwej drabince turniejowej](#test-na-prawdziwej-drabince-turniejowej)  
+8. [Techniczne szczegóły](#techniczne-szczegóły)  
+9. [Podsumowanie](#podsumowanie)  
+
+---
+
 ## Cel projektu
 
-Celem projektu było stworzenie modelu machine learningowego, który na podstawie danych historycznych przewiduje **czy zawodnik nr 1 wygra mecz**. Predykcja ta ma charakter binarny (0 = przegrana, 1 = wygrana) i opiera się wyłącznie na cechach zawodników oraz danych meczowych, bez użycia kursów bukmacherskich.
+Moim celem było stworzenie modelu machine learningowego, który na podstawie danych historycznych przewiduje **czy zawodnik nr 1 wygra mecz**. Predykcja ma charakter binarny (0 = przegrana, 1 = wygrana) i opiera się wyłącznie na cechach zawodników oraz danych meczowych – bez użycia kursów bukmacherskich.
+
+---
+
+## Przebieg projektu
+
+Na początku użyłem klasycznego modelu **Random Forest**, który osiągnął przyzwoite wyniki (accuracy ~60%). Po analizie wyników i wydajności postanowiłem wypróbować **XGBoost**, znany z dużej skuteczności na danych tablicowych i dobrej kontroli nad błędem generalizacji.
+
+Dzięki jego zastosowaniu udało mi się poprawić wynik (AUC ≈ 0.738) oraz uzyskać lepszą interpretowalność cech.
+
+Dodatkowo wykorzystałem **Optuna** do optymalizacji hiperparametrów. Pozwoliło mi to jeszcze bardziej poprawić działanie modelu XGBoost – AUC wzrosło o ok. 2 punkty procentowe, a accuracy osiągnęło około 64.5%.
 
 ---
 
 ## Dane i preprocessing
 
-Dane wejściowe pochodziły ze zbioru spotkań ATP (`atp_tennis.csv`), a następnie zostały przetworzone (`atp_tennis_processed.csv`). Początkowo zawierał on podstawowe informacje o meczach i zawodnikach. Aby zwiększyć wartość predykcyjną modelu, znacząco rozszerzyłem bazę o nowe zmienne poprzez preprocessing. Szczególnie ważną zmienna okazały się punkty ELO, które stworzyłem za pomocą specjalnego równania (`https://en.wikipedia.org/wiki/Elo_rating_system`).
+Dane wejściowe pochodziły ze zbioru spotkań ATP (`atp_tennis.csv`), który następnie przetworzyłem i zapisałem jako `atp_tennis_processed.csv`. Zbiór zawierał podstawowe informacje o meczach i zawodnikach.
 
-### Przetwarzanie i inżynieria cech:
+### Inżynieria cech
 
-- Dodano:
-  - Punkty ELO (`Elo_diff`, `surface_elo_diff`)
-  - Różnice w rankingach, punktach, formie
-  - Historia bezpośrednich spotkań (`h2h_diff`, `h2h_surface_diff`)
-  - Pochodne ELO z formą:
-    - `elo_x_form = Elo_diff * win_last_100_diff`
-    - `elo_form_ratio = Elo_diff / (win_last_100_diff + ε)`
-    - `elo_plus_form = Elo_diff + win_last_100_diff`
+Stworzyłem wiele nowych zmiennych, m.in.:
 
-- Wykres punktów ELO każdego zawodnika z wyróżnieniem 5 najlepszych:
+- Punkty ELO (`Elo_diff`, `surface_elo_diff`)
+- Różnice rankingowe i formy (`rank_diff`, `win_last_100_diff`)
+- Historia H2H (`h2h_diff`, `h2h_surface_diff`)
+- Złożone cechy łączące ELO i formę:
+  - `elo_x_form = Elo_diff * win_last_100_diff`
+  - `elo_form_ratio = Elo_diff / (win_last_100_diff + ε)`
+  - `elo_plus_form = Elo_diff + win_last_100_diff`
 
- <p align="center">
+#### Przykład: ELO w czasie dla top 5 graczy
+
+<p align="center">
   <img src="../images/elo_over_time.png" width="70%">
-  <br><br>
 </p>
-
-Zmienna celu (`is_player1_winner`) to etykieta binarna wskazująca zwycięstwo zawodnika nr 1.
 
 ---
 
-## Co zostało pominięte?
+Aby uchwycić aktualną formę zawodników oraz ich historię rywalizacji, przygotowałem funkcje, które dynamicznie obliczają cechy na podstawie danych historycznych do danego dnia (`Date`). Cechy te mogą znacząco wspierać model predykcyjny, umożliwiając mu analizę trendów i wzorców w grze zawodników.
 
-W zbiorze danych dostępne są również kolumny `Odd_1` i `Odd_2`, które przedstawiają kursy bukmacherskie. Są one bardzo silnym predyktorem, ponieważ zawierają wiedzę rynku. Jednak zostały świadomie pominięte, ponieważ ich użycie uczyniłoby problem trywialnym i nie oddawałoby faktycznej skuteczności modelu opartego wyłącznie na cechach graczy.
+### Wygrane w ostatnich N meczach
+
+Dla każdego meczu obliczyłem współczynnik zwycięstw z ostatnich:
+
+- 5 (`win_last_5_diff`)
+- 25 (`win_last_25_diff`)
+- 50 (`win_last_50_diff`)
+- 100 (`win_last_100_diff`)
+- 250 (`win_last_250_diff`)
+
+dla obu zawodników, a następnie zapisałem ich różnicę. Pozwala to modelowi rozpoznać, który z zawodników jest w lepszej formie krótkoterminowej lub długoterminowej.
+
+### Gradient rankingu ELO
+
+Gradient rankingu ELO mierzy tempo zmiany siły zawodnika na przestrzeni ostatnich n meczów. Obliczamy go jako różnicę pomiędzy rankingiem ELO w najnowszym meczu a rankingiem ELO sprzed n meczów, podzieloną przez n. 
+
+Ta cecha pozwala ocenić, czy zawodnik jest na fali wznoszącej (rosnące ELO) lub czy jego forma spada.
+
+Gradienty obliczane są dla różnych długości serii meczów: 20, 35, 50 i 100, a następnie tworzymy cechy różnicowe pomiędzy dwoma zawodnikami:
+
+- `elo_grad_20_diff`
+- `elo_grad_35_diff`
+- `elo_grad_50_diff`
+- `elo_grad_100_diff`
+
+### Stosunek zwycięstw na ostatnich n meczach
+
+Ta cecha mierzy skuteczność zawodnika w jego ostatnich n meczach przed datą danego spotkania. Obliczamy stosunek liczby zwycięstw do liczby rozegranych meczów w tym okresie. W przypadku braku danych o poprzednich meczach zawodnika, przyjmujemy neutralną wartość 0.5.
+
+### Historia bezpośrednich pojedynków (H2H)
+
+Historia bezpośrednich pojedynków między dwoma zawodnikami to istotna cecha, która pomaga ocenić, jak często i z jakim skutkiem mierzyli się oni ze sobą w przeszłości. 
+
+Funkcja `calc_h2h` liczy różnicę zwycięstw pomiędzy dwoma graczami, bazując na meczach rozegranych przed datą bieżącego spotkania. Wynik dodatni oznacza przewagę pierwszego gracza, ujemny – drugiego, a zero – brak przewagi lub brak wcześniejszych pojedynków.
+
+- `h2h_diff`
+- `h2h_surface_diff`
+
+---
+
+## Co pominąłem?
+
+Zrezygnowałem ze zmiennych `Odd_1` i `Odd_2` (kursy bukmacherskie), mimo że są bardzo predykcyjne. Zawierają jednak wiedzę rynkową, która zaburzyłaby ocenę „czysto sportowego” modelu. Chciałem, by predykcja opierała się wyłącznie na danych sportowych.
 
 ---
 
 ## Modele ML
 
-### Główny model:
-- **XGBoost (drzewa gradientowe)**
-  - **Tuning hiperparametrów za pomocą Optuna** (z `StratifiedKFold`)
-    - Poprawa skuteczności o około **2% AUC**
-    - Użycie `early_stopping` i `logloss` jako metryki walidacyjnej
-  - Najlepsze wyniki:
-    - **AUC ≈ 0.738**
-    - **Accuracy ≈ 65.3%**
-  - Jedno z drzew XGBoost:
-    
+### Główny model: XGBoost
+
+- Algorytm: drzewa gradientowe
+- Tuning hiperparametrów: **Optuna**
+  - `StratifiedKFold` i metryka `logloss`
+  - `early_stopping_rounds` w walidacji
+- Najlepsze wyniki:
+  - **AUC ≈ 0.738**
+  - **Accuracy ≈ 65.3%**
+
+#### Przykładowe drzewo decyzyjne XGBoost
+
 <p align="center">
-  <img src="../images/decision_tree/xgb_tree_0.png" alt="Drzewo XGBoost" width="75%">
+  <img src="../images/decision_tree/xgb_tree_0.png" width="75%">
 </p>
 
-### Eksperymenty:
-- **Ensemble stacking**: Połączenie `XGBoost` i `Random Forest` w modelu `StackingClassifier`
-  - Poprawa accuracy o ~0.5 punktu procentowego
+### Inne modele, które przetestowałem:
 
-- **Sieć neuronowa (Keras)**:
-  - Porównywalna skuteczność jak XGBoost
-  - Wykresy pokazują, że nie wnosi dużej poprawy
-
-- **kNN, Native Bayers, Decision Tree**:
-   - kNN accuracy: 0.6080
-   - Naive Bayes accuracy: 0.6482
-   - Decision Tree accuracy: 0.5705
+- **Random Forest** – punkt wyjścia (accuracy ~64%)
+- **Ensemble stacking (XGBoost + RF + Logistic Regression)**:
+  - accuracy ~66%, AUC ~0.74
+- **Sieć neuronowa (Keras)** – podobna skuteczność, mniejsza interpretowalność
+- **kNN**: 0.6080  
+- **Naive Bayes**: 0.6482  
+- **Decision Tree**: 0.5705
 
 ---
 
 ## Wizualizacje i interpretacja
 
-- Wygenerowano wykresy:
-  - **ROC curves** (porównanie modeli)
-  - **Feature importance** (XGBoost)
-    
- <p align="center">
-  <img src="../images/neural_network/training_curves.png" width="70%">
-  <br><br>
-</p>
- 
+Wygenerowałem m.in.:
+
+- **Krzywe ROC** do porównania modeli
+- **Feature importance** z modelu XGBoost
+
 <p align="center">
-  <img src="../images/decision_tree/xgb_feature_importance.png" width="70%">
-  <br><br>
+  <img src="../images/neural_network/training_curves.png" width="70%">
 </p>
 
-Z wykresów i interpretacji cech wynika, że:
-> **Najbardziej wpływowym predyktorem są punkty ELO**, a szczególnie suma różnicy elo i formy (`elo_plus_form`).
+<p align="center">
+  <img src="../images/decision_tree/xgb_feature_importance.png" width="70%">
+</p>
+
+Z analizy wynika, że:
+> Najsilniejszym predyktorem są punkty **ELO** oraz ich kombinacja z formą (`elo_plus_form`).
 
 ---
 
 ## Test na prawdziwej drabince turniejowej
 
-Po wytrenowaniu wszystkich modeli (najlepszy osiągał accuracy ~66%) zdecydowałem się przetestować model w realistycznym scenariuszu:
+Przetestowałem model na rzeczywistym turnieju wielkoszlemowym.
 
-1. **Pobranie drabinki z aktualnego turnieju wielkoszlemowego**:
-   - Stworzony został skrypt: `src/bracket/scrape_grandslam_bracket`
-   - Automatycznie pobiera drabinkę (matchupy) graczy z internetu
+1. **Pobranie drabinki**  
+   Napisałem skrypt `scrape_grandslam_bracket`, który automatycznie zaciągał aktualne pary meczowe.
 
-2. **Predykcja meczów turniejowych**:
-   - Na podstawie przygotowanej bazy danych (zawierającej cechy graczy z ich ostatnich meczów) 
-     skrypt: `src/latest_player_matches/players_latest_features`, csv: `data/processed/atp_players_features_latest`
-   - Dla każdego gracza pobierany był jego ostatni mecz
-   - Model przewidywał zwycięzców kolejnych rund turnieju
+2. **Predykcja meczów**  
+   Wykorzystałem dane z ostatnich meczów zawodników (`players_latest_features`) i przewidziałem wyniki każdej rundy.
 
-3. **Model skutecznie wytypował zwycięzcę całego turnieju!**
-   - W pliku `data/predict_tourney/predicted_bracket.csv` można zobaczyć jakich zwycięzców wytypował nasz model
+3. **Model poprawnie wytypował zwycięzcę turnieju!**  
+   Wyniki zapisałem w pliku `predicted_bracket.csv`.
 
-4. **Wizualizacje**:
-   - Dla każdego meczu stworzono wykres pokazujący, które cechy miały największy wpływ na decyzję modelu
-   - Stworzono również **pełny wykres drabinki z wynikami modelu**
-   - Nadal występowały problemy w meczach z niewielką różnicą ELO — model jest **najpewniejszy, gdy różnica ELO jest wyraźna**
+4. **Wizualizacje**  
+   Dla każdego meczu wygenerowałem wykres wpływu cech, a także stworzyłem wizualizację całej drabinki.
 
 <p align="center">
   <img src="../images/bracket/importance_r6_m124_Sinner J._vs_Djokovic N..png" width="70%">
@@ -124,16 +180,19 @@ Po wytrenowaniu wszystkich modeli (najlepszy osiągał accuracy ~66%) zdecydowa�
 
 - Dane: `data/processed/atp_tennis_processed.csv`
 - Język: Python
-- Biblioteki: wszystkie zostały zapisane w: `requirements.txt`
-- Modele zapisane w `models/`
-- Wykresy zapisane w `images/`
+- Biblioteki: zapisane w `requirements.txt`
+- Modele: `models/`
+- Wizualizacje: `images/`
 
 ---
 
 ## Podsumowanie
 
-Stworzenie własnego systemu ELO oraz wzbogacenie zbioru danych o kilkanaście cech inżynieryjnych pozwoliło zbudować skuteczny model predykcyjny bez korzystania z zewnętrznych kursów. Pomimo eksperymentów z sieciami neuronowymi i ensemble, XGBoost nadal pozostaje najbardziej wydajnym rozwiązaniem.
+Stworzyłem własny system ELO oraz wzbogaciłem dane o cechy formy, rankingu i historii spotkań. Dzięki temu zbudowałem solidny model predykcyjny.
 
-Dodatkowo, zastosowanie tuningu hiperparametrów przy użyciu Optuna przyniosło zauważalną, choć umiarkowaną poprawę (~2% AUC), co świadczy o solidności modelu już w wersji bazowej.
+Najlepsze rezultaty uzyskał **XGBoost**, a jego skuteczność poprawiłem o dodatkowe 2% AUC za pomocą **Optuna**. Model osiąga accuracy na poziomie ok. **66%**, jest odporny na overfitting i dobrze interpretuje wpływ cech.
 
-Model osiąga solidne wyniki przy zachowaniu wysokiej interpretowalności i niezależności od wiedzy rynku.
+Dzięki testowi na realnym turnieju mogłem pokazać praktyczne zastosowanie modelu w typowaniu zwycięzców.
+
+Model można łatwo rozbudować i zintegrować z większymi systemami predykcyjnymi – np. o dane rynkowe, pogodowe lub trackingowe zawodników.
+
