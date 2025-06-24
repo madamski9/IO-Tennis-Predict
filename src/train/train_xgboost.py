@@ -26,7 +26,6 @@ df = df[
     (df["h2h_diff"] != 0)
 ]
 
-# === 3. Dodaj surface_elo_diff ===
 surface_elo_cols = {
     "Hard": "Elo_Hard_diff",
     "Clay": "Elo_Clay_diff",
@@ -37,7 +36,7 @@ df["elo_x_form"] = df["Elo_diff"] * df["win_last_100_diff"]
 df["elo_plus_form"] = df["Elo_diff"] + df["win_last_100_diff"]
 df["elo_form_ratio"] = df["Elo_diff"] / (df["win_last_100_diff"] + 1e-5)
 
-# === 5. Feature list ===
+# === feature list ===
 features = [
     "Elo_diff", "surface_elo_diff", "rank_diff", "pts_diff",
     "win_last_5_diff", "win_last_25_diff", "win_last_50_diff", "win_last_100_diff", "win_last_250_diff",
@@ -48,7 +47,6 @@ features = [
 X = df[features]
 y = df["is_player1_winner"]
 
-# === 6. Podział czasowy ===
 train_df = df[df["Date"] < "2022-01-01"]
 val_df = df[(df["Date"] >= "2022-01-01") & (df["Date"] < "2023-01-01")]
 test_df = df[df["Date"] >= "2023-01-01"]
@@ -119,7 +117,7 @@ study.optimize(objective, n_trials=20)
 
 print("Best XGB params:", study.best_params)
 
-# === 8. Budowa modeli bazowych ===
+# === budowa modeli ===
 best_xgb_params = study.best_params
 best_xgb_params.update({
     "objective": "binary:logistic",
@@ -135,11 +133,9 @@ rf_model = RandomForestClassifier(n_estimators=200, random_state=42)
 base_models = [xgb_model, rf_model]
 meta_model = LogisticRegression(max_iter=1000)
 
-# === 9. Stacking ===
 n_folds = 5
 skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
-# Przygotowanie tablicy na meta cechy (predykcje bazowych modeli na treningu)
 meta_features_train = np.zeros((X_tr.shape[0], len(base_models)))
 
 for i, model in enumerate(base_models):
@@ -154,17 +150,16 @@ for i, model in enumerate(base_models):
         meta_feature[val_idx] = preds
     meta_features_train[:, i] = meta_feature
 
-# Uczymy meta-model na predykcjach bazowych modeli
 meta_model.fit(meta_features_train, y_tr)
 
-# Teraz predykcje bazowych modeli na zbiorze testowym
+# === predykcje bazowych modeli na zbiorze testowym ===
 meta_features_test = np.zeros((X_test.shape[0], len(base_models)))
 for i, model in enumerate(base_models):
-    model.fit(X_tr, y_tr)  # Trenujemy bazowe modele na pełnym treningu
+    model.fit(X_tr, y_tr)  
     preds_test = model.predict_proba(X_test)[:, 1]
     meta_features_test[:, i] = preds_test
 
-# Predykcje finalne meta-modelu na podstawie meta cech
+# === predykcje finalne meta modelu na podstawie meta cech ===
 final_preds_proba = meta_model.predict_proba(meta_features_test)[:, 1]
 final_preds = (final_preds_proba > 0.5).astype(int)
 
@@ -174,15 +169,13 @@ auc = roc_auc_score(y_test, final_preds_proba)
 print(f"Stacking Test Accuracy: {acc:.4f}")
 print(f"Stacking Test AUC: {auc:.4f}")
 
-# === 10. Zapisz meta-model (Logistic Regression) i bazowe modele (XGB i RF) ===
 os.makedirs("models", exist_ok=True)
 joblib.dump(meta_model, "models/meta_model_logreg.joblib")
 joblib.dump(xgb_model, "models/xgb_base_model.joblib")
 joblib.dump(rf_model, "models/rf_base_model.joblib")
 print("Models saved to models/")
 
-# === 11. Feature importance dla XGBoost ===
-# Trenuj na pełnym treningu i rysuj
+# === feature importance dla XGBoost ===
 xgb_model.fit(X_tr, y_tr)
 plt.figure(figsize=(10,6))
 xgb.plot_importance(xgb_model, importance_type="gain", max_num_features=15)
@@ -191,7 +184,7 @@ os.makedirs("images/decision_tree/", exist_ok=True)
 plt.savefig("images/decision_tree/xgb_feature_importance.png")
 print("Feature importance plot saved.")
 
-# === 12. Wizualizacja jednego z drzew XGBoost ===
+# === wizualizacja jednego z drzew XGBoost ===
 plt.figure(figsize=(20, 10))
 xgb.plot_tree(xgb_model, num_trees=0, rankdir='LR', ax=plt.gca())
 plt.tight_layout()

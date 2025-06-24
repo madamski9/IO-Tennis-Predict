@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from networkx.drawing.nx_pydot import graphviz_layout
 import matplotlib.pyplot as plt
 
-# === Normalizacja i dopasowywanie nazw ===
+# === normalizacja i dopasowywanie nazw ===
 
 def name_to_token_set(name):
     """Zamienia imię/nazwisko na zbiór słów: usuwa kropki, myślniki, zamienia na małe litery."""
@@ -24,15 +24,13 @@ def find_best_player_match(name, player_list):
             return candidate
     return None
 
-# === Wczytaj modele ===
+# === wczytaj modele ===
 xgb_model = joblib.load("models/xgb_base_model.joblib")
 rf_model = joblib.load("models/rf_base_model.joblib")
 meta_model = joblib.load("models/meta_model_logreg.joblib")
 
-# === Wczytaj bazę danych ===
 players_data = pd.read_csv("data/processed/atp_players_features_latest.csv")
 
-# Lista cech wymaganych przez modele
 features = [
     "Elo_diff", "surface_elo_diff", "rank_diff", "pts_diff",
     "win_last_5_diff", "win_last_25_diff", "win_last_50_diff", "win_last_100_diff", "win_last_250_diff",
@@ -40,7 +38,7 @@ features = [
     "h2h_diff", "h2h_surface_diff", "elo_x_form", "elo_plus_form", "elo_form_ratio"
 ]
 
-# === Generowanie cech pojedynku ===
+# === generowanie cech pojedynku ===
 
 def get_player_row(name):
     matched_name = find_best_player_match(name, players_data["Player"].tolist())
@@ -90,7 +88,7 @@ def generate_match_features(p1_raw, p2_raw, surface="Clay"):
     df = df.apply(pd.to_numeric, errors='coerce')
     return df[features]
 
-# === Wczytaj drabinkę turniejową ===
+# === wczytaj drabinke ===
 bracket_df = pd.read_csv("data/brackets/draw_roland_garros_2025_128.csv")
 bracket_df.columns = ["Round", "Player_1", "Player_2"]
 bracket_df_original = bracket_df.copy()
@@ -103,19 +101,16 @@ results = []
 
 def plot_feature_importance_for_match(features_df, model, player_1, player_2, round_num, match_index):
     booster = model.get_booster()
-    importances = booster.get_score(importance_type='gain')  # lub 'weight'
+    importances = booster.get_score(importance_type='gain')  
 
-    # Dopasuj do wartości z aktualnego meczu
     values = features_df.iloc[0]
 
-    # Wybierz tylko te cechy, które występują w ważności
     contrib = {k: importances[k] * values[k] for k in importances if k in values}
 
     if not contrib:
         print(f"Brak wspólnych cech do wyświetlenia dla: {player_1} vs {player_2}")
         return
 
-    # Posortuj według wpływu
     sorted_items = sorted(contrib.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
     keys, vals = zip(*sorted_items)
 
@@ -130,7 +125,7 @@ def plot_feature_importance_for_match(features_df, model, player_1, player_2, ro
     plt.savefig(filename)
     plt.close()
 
-# === Główna pętla predykcyjna przez wszystkie rundy ===
+# === glowna petla predykcyjna przez wszystkie rundy ===
 current_round_num = bracket_df["Round"].min()
 
 while True:
@@ -170,7 +165,7 @@ while True:
         })
         winners.append(winner)
 
-    # Twórz kolejną rundę
+    # kolejna runda
     if len(winners) >= 2 and len(winners) % 2 == 0:
         next_round_df = pd.DataFrame({
             "Round": [current_round_num + 1] * (len(winners) // 2),

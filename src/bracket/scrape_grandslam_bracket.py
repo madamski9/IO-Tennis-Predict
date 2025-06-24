@@ -11,17 +11,16 @@ def fetch_draw(url):
 def parse_draw(soup):
     data = []
 
-    for round_num in range(1, 8):  # Runda 1–7
+    for round_num in range(1, 8):  # runda 1–7
         round_divs = soup.select(f'div.draw-round-{round_num} div.draw-item')
         for match in round_divs:
             names = match.select("div.name > a")
             if len(names) != 2:
-                continue  # pomiń jeśli mecz niepełny
+                continue  # pomin jeśli mecz niepelny
 
             p1 = names[0].text.strip()
             p2 = names[1].text.strip()
 
-            # Zwycięzca ma div.winner wewnątrz draw-stats
             stats = match.select("div.draw-stats")
             winner = ""
             if stats:

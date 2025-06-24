@@ -1,5 +1,4 @@
 import pandas as pd
-from collections import defaultdict
 from tqdm import tqdm
 
 def calc_win_ratio_last_n(df, player, current_date, n=50):

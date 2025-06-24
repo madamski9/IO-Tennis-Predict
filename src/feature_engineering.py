@@ -1,5 +1,3 @@
-import pandas as pd
-
 def compute_h2h_winrate(df):
     h2h = {}
 
@@ -13,11 +11,9 @@ def compute_h2h_winrate(df):
             h2h[key] = []
 
         results = h2h[key]
-        # 1 if player_1 won, 0 if lost
         winrate = sum(1 for r in results if r == p1) / len(results) if results else 0.5
         winrates.append(winrate)
 
-        # add current result
         h2h[key].append(row["Winner"])
 
     df["h2h_winrate"] = winrates
@@ -36,7 +32,6 @@ def compute_form_score(df, n_matches=5):
         wins = sum(1 for r in past_matches[-n_matches:] if r == "W")
         form_scores.append(wins / n_matches)
 
-        # update history
         result = "W" if winner == player else "L"
         history.setdefault(player, []).append(result)
 
@@ -58,7 +53,6 @@ def compute_surface_winrate(df):
         winrate = sum(1 for r in past if r == "W") / len(past) if past else 0.5
         surface_wr.append(winrate)
 
-        # update
         result = "W" if winner == player else "L"
         winrate_history.setdefault(key, []).append(result)
 

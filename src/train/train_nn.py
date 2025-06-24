@@ -11,18 +11,18 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 
-# === 1. Wczytanie danych ===
+# === wczytanie danych ===
 df = pd.read_csv("data/processed/atp_tennis_processed.csv")
 df["Date"] = pd.to_datetime(df["Date"])
 
-# === 2. Usuwanie meczów bez sensownych różnic ===
+# === usuwanie meczów bez sensownych roznic ===
 df = df[
     (df["win_last_25_diff"] != 0) |
     (df["elo_grad_50_diff"] != 0) |
     (df["h2h_diff"] != 0)
 ]
 
-# === 3. Dodanie feature: surface_elo_diff i inne interakcje ===
+# === dodanie feature: surface_elo_diff i inne interakcje ===
 surface_elo_cols = {
     "Hard": "Elo_Hard_diff",
     "Clay": "Elo_Clay_diff",
@@ -33,7 +33,7 @@ df["elo_x_form"] = df["Elo_diff"] * df["win_last_100_diff"]
 df["elo_plus_form"] = df["Elo_diff"] + df["win_last_100_diff"]
 df["elo_form_ratio"] = df["Elo_diff"] / (df["win_last_100_diff"] + 1e-5)
 
-# === 4. Wybór cech ===
+# === wybor cech ===
 features = [
     "Elo_diff", "surface_elo_diff", "rank_diff", "pts_diff",
     "win_last_5_diff", "win_last_25_diff", "win_last_50_diff", "win_last_100_diff", "win_last_250_diff",
@@ -42,7 +42,6 @@ features = [
 ]
 target = "is_player1_winner"
 
-# === 5. Podział czasowy ===
 train_df = df[df["Date"] < "2022-01-01"]
 val_df = df[(df["Date"] >= "2022-01-01") & (df["Date"] < "2023-01-01")]
 test_df = df[df["Date"] >= "2023-01-01"]
@@ -51,13 +50,13 @@ X_train, y_train = train_df[features], train_df[target]
 X_val, y_val = val_df[features], val_df[target]
 X_test, y_test = test_df[features], test_df[target]
 
-# === 6. Skalowanie danych ===
+# === skalowanie danych ===
 scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_val = scaler.transform(X_val)
 X_test = scaler.transform(X_test)
 
-# === 7. Budowa modelu NN ===
+# === budowa modelu ===
 model = Sequential([
     Dense(128, activation='relu', input_shape=(len(features),)),
     BatchNormalization(),
@@ -72,10 +71,10 @@ model = Sequential([
 
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# === 8. Early stopping ===
+# === early stopping ===
 early_stop = EarlyStopping(patience=10, restore_best_weights=True)
 
-# === 9. Trening ===
+# === trening ===
 history = model.fit(
     X_train, y_train,
     validation_data=(X_val, y_val),
@@ -85,7 +84,6 @@ history = model.fit(
     verbose=1
 )
 
-# === 10. Ewaluacja ===
 y_pred_prob = model.predict(X_test).flatten()
 y_pred = (y_pred_prob > 0.5).astype(int)
 
@@ -109,17 +107,15 @@ for thresh in np.arange(0.3, 0.7, 0.01):
 print(f"Best threshold for accuracy: {best_thresh:.2f} with accuracy {best_acc:.4f}")
 print(f"Best F1 score: {best_f1:.4f}")
 
-# === 11. Zapis modelu i scalerów ===
 os.makedirs("models", exist_ok=True)
 model.save("models/nn_model.keras")
 joblib.dump(scaler, "models/scaler_nn.joblib")
 print("Neural Network model saved to models/nn_model.keras")
 
-# === 12. Wykresy treningu ===
+# === wykresy ===
 os.makedirs("images/smaller_dataset/neural_network", exist_ok=True)
 plt.figure(figsize=(12, 5))
 
-# Accuracy
 plt.subplot(1, 2, 1)
 plt.plot(history.history['accuracy'], label='Train')
 plt.plot(history.history['val_accuracy'], label='Validation')
@@ -129,7 +125,6 @@ plt.ylabel('Accuracy')
 plt.legend()
 plt.grid(True)
 
-# Loss
 plt.subplot(1, 2, 2)
 plt.plot(history.history['loss'], label='Train')
 plt.plot(history.history['val_loss'], label='Validation')

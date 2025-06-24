@@ -1,10 +1,8 @@
 import pandas as pd
 
-# Wczytaj pliki
 real = pd.read_csv("data/predict_tourney/real_bracket.csv")
 pred = pd.read_csv("data/predict_tourney/predicted_bracket.csv")
 
-# Dopasuj kolumny i rundy
 merged = pd.merge(
     pred,
     real,

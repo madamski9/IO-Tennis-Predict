@@ -1,13 +1,11 @@
 import pandas as pd
 
-# Wczytaj dane
 matches = pd.read_csv("data/processed/atp_tennis_processed_test.csv")
 matches["Date"] = pd.to_datetime(matches["Date"])
 
 surfaces = ["Hard", "Clay", "Grass"]
 players = set(matches["Player_1"]).union(set(matches["Player_2"]))
 
-# Lista cech z ostatniego meczu, które chcesz dodać (przykładowo)
 extra_features = [
     "Elo_diff", "surface_winrate", "rank_diff", "pts_diff",
     "win_last_5_diff", "win_last_25_diff", "win_last_50_diff", "win_last_100_diff", "win_last_250_diff",
@@ -21,7 +19,6 @@ for player in players:
     player_data = {"Player": player}
     has_any_elo = False
 
-    # Pobieranie Elo po nawierzchniach (tak jak masz)
     for surface in surfaces:
         surface_matches = matches[
             ((matches["Player_1"] == player) | (matches["Player_2"] == player)) &
@@ -40,7 +37,6 @@ for player in players:
 
         player_data[f"Elo_{surface}"] = elo if elo not in [-1.0] else None
 
-    # Pobieranie ostatniego meczu gracza (dowolna nawierzchnia)
     all_matches = matches[
         (matches["Player_1"] == player) | (matches["Player_2"] == player)
     ].sort_values("Date", ascending=False)
@@ -49,7 +45,6 @@ for player in players:
         last = all_matches.iloc[0]
         suffix = "_1" if last["Player_1"] == player else "_2"
 
-        # Podstawowe statystyki z ostatniego meczu (Rank, Pts, Elo)
         for col in ["Rank", "Pts", "Elo"]:
             key = f"{col}{suffix}"
             value = last.get(key, None)
@@ -58,9 +53,7 @@ for player in players:
             else:
                 player_data[col] = None
         
-        # Dodanie dodatkowych cech z ostatniego meczu, które są w extra_features
         for feat in extra_features:
-            # Sprawdź, czy jest z sufiksem _1 lub _2
             key_1 = feat + "_1"
             key_2 = feat + "_2"
             if key_1 in last:
@@ -70,7 +63,6 @@ for player in players:
             else:
                 val = last.get(feat, None)
             
-            # Jeśli wartość jest -1, traktujemy jako brak danych
             if val == -1 or val == -1.0:
                 val = None
             
@@ -79,7 +71,6 @@ for player in players:
     if has_any_elo:
         player_rows.append(player_data)
 
-# Tworzenie DataFrame i zapis
 players_df = pd.DataFrame(player_rows)
 players_df.to_csv("data/processed/atp_players_features_latest.csv", index=False)
 print("Gotowe: zapisano dane graczy z ostatnimi Elo i dodatkowymi cechami.")
