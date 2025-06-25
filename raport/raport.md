@@ -155,9 +155,21 @@ Wygenerowałem m.in.:
 - **Krzywe ROC** do porównania modeli
 - **Feature importance** z modelu XGBoost
 
+## Wykresy Sieci neuronowej
+
 <p align="center">
   <img src="../images/neural_network/training_curves.png" width="70%">
 </p>
+
+Model dobrze uczy się na danych treningowych, ale nie poprawia się na danych walidacyjnych — accuracy tam stoi w miejscu, a loss lekko rośnie. To sugeruje problem z generalizacją i możliwe przeuczenie.
+
+<p align="center">
+  <img src="../images/neural_network/training_curves_full.png" width="70%">
+</p>
+
+Model na innych danych uczy się stabilnie, bez wyraźnych oznak overfittingu — krzywe walidacyjne podążają za treningowymi.
+
+## Wykres ważności cech drzew xgboost
 
 <p align="center">
   <img src="../images/decision_tree/xgb_feature_importance.png" width="70%">
