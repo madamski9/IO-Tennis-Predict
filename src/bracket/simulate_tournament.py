@@ -9,14 +9,14 @@ import matplotlib.pyplot as plt
 
 # === normalizacja i dopasowywanie nazw ===
 
+# zamienia imie i nazwisko na zbior slow
 def name_to_token_set(name):
-    """Zamienia imię/nazwisko na zbiór słów: usuwa kropki, myślniki, zamienia na małe litery."""
     name = re.sub(r"[\.\-]", " ", name).lower()
     tokens = set(name.strip().split())
     return tokens
 
+# dopasowanie nazwiska z drabinki do nazwiska z bazy danych
 def find_best_player_match(name, player_list):
-    """Dopasowuje nazwisko z drabinki do nazwiska z bazy danych niezależnie od kolejności słów."""
     name_tokens = name_to_token_set(name)
     for candidate in player_list:
         candidate_tokens = name_to_token_set(candidate)
